@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require 'app/screens/screen'
-require 'app/screens/title_screen'
+require_relative 'screens/screen'
+require_relative 'screens/title_screen'
 
 def tick(args)
   screen = sync_screen(args)

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'app/screens/level_1'
+require_relative 'level_1'
 
 class TitleScreen < Screen
   def draw
