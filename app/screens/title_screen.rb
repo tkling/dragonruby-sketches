@@ -3,6 +3,16 @@
 require_relative 'level'
 
 class TitleScreen < Screen
+  attr_accessor :bg_image
+
+  def initialize
+    @bg_image = {
+      dim_x: 1024,
+      dim_y: 1024,
+      path: 'sprites/gosu/background/colored_grass.png'
+    }
+  end
+
   def tick
     audio[:music] ||= { input: "sounds/music.mp3", looping: true }
   end
@@ -19,15 +29,17 @@ class TitleScreen < Screen
   end
 
   def render_background
-    path = 'sprites/gosu/background/colored_grass.png'
-    outputs.sprites << scrolling_background(state.tick_count, path, 1.0)
+    outputs.sprites << scrolling_background(state.tick_count, 1.0)
   end
 
-  def scrolling_background(at, path, rate, y = -100)
-    image_x = 1024
-    [
-      { x: 0 - at.*(rate) % image_x, y: y, w: image_x, h: image_x, path: path },
-      { x: image_x - at.*(rate) % image_x, y: y, w: image_x, h: image_x, path: path }
-    ]
+  def scrolling_background(at, rate, y = -100)
+    # Right now this re-draws the sprite on each frame, with x decrementing as the image
+    # should move across the screen. Can this be done such that the images are only ever
+    # drawn once, then just moved around (with wrapping the further left to the back of
+    # the list on the right once it moves off-screen)?
+    dim_x = bg_image[:dim_x]
+    [0, dim_x, dim_x*2].map do |x|
+      { x: x - at.*(rate) % dim_x, y: y, w: dim_x, h: bg_image[:dim_y], path: bg_image[:path] }
+    end
   end
 end
