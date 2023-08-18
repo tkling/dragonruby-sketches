@@ -3,6 +3,10 @@
 require_relative 'level'
 
 class TitleScreen < Screen
+  def tick
+    audio[:music] ||= { input: "sounds/music.mp3", looping: true }
+  end
+
   def draw
     render_background
     outputs.sprites << [100, 420, 1082, 93, "sprites/gosu/logo.png" ]

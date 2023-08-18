@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Screen
-  attr_accessor :_, :state, :outputs, :inputs, :grid, :gtk
+  attr_accessor :_, :state, :outputs, :inputs, :grid, :gtk, :audio
 
   def draw
     nil

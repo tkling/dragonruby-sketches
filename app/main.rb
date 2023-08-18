@@ -17,6 +17,7 @@ def sync_screen(args)
   screen._       = args
   screen.state   = args.state
   screen.outputs = args.outputs
+  screen.audio   = args.audio
   screen.inputs  = args.inputs
   screen.grid    = args.grid
   screen.gtk     = args.gtk
