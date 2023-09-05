@@ -1,29 +1,32 @@
 # frozen_string_literal: true
 
-require_relative 'screens/screen'
-require_relative 'screens/title_screen'
+requires = %w[
+  lib/card
+  lib/constants
+  lib/player
+  lib/ui
+  screens/screen
+  screens/title_screen
+  screens/level
+]
+
+requires.each { |r| require_relative r }
 
 def tick(args)
   screen = sync_screen(args)
   screen.tick
   screen.draw
-  screen.handle_input
 
   handle_input(args)
 end
 
 def sync_screen(args)
-  screen         = (args.state.screen ||= TitleScreen.new)
-  screen._       = args
-  screen.state   = args.state
-  screen.outputs = args.outputs
-  screen.audio   = args.audio
-  screen.inputs  = args.inputs
-  screen.grid    = args.grid
-  screen.gtk     = args.gtk
-  screen
+  (args.state.screen ||= TitleScreen.new).tap do |screen|
+    screen.sync!(args)
+  end
 end
 
 def handle_input(args)
   args.gtk.request_quit if args.inputs.keyboard.key_down.escape
+  args.state.screen.handle_input
 end
