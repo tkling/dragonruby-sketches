@@ -22,23 +22,35 @@ class UI
     $gtk.args.state
   end
 
+  def outputs
+    $gtk.args.outputs
+  end
+
+  def inputs
+    $gtk.args.inputs
+  end
+
+  def args
+    $gtk.args
+  end
+
   def draw
     # Display health bar.
-    $gtk.args.outputs.sprites << @health_frame.merge(x: 10, y: 665)
-    $gtk.args.outputs.sprites << @health_bar.merge(x: 20, y: 678)
+    outputs.sprites << @health_frame.merge(x: 10, y: 665)
+    outputs.sprites << @health_bar.merge(x: 20, y: 678)
 
     # Card choices.
     unless @input_locked
       if state.tutorial_done && choices.length == 3
         sprite_constants = {y: 550, x_scale: 0.1559, y_scale: 0.2525}
 
-        draw_choice(x: 400, **sprite_constants)
+        draw_choice(x: 400, entity: choices[0], **sprite_constants)
         hud_text(choices[0].text, x: 400 + 44, y: 550 + 54)
 
-        draw_choice(x: 576, **sprite_constants)
+        draw_choice(x: 576, entity: choices[1], **sprite_constants)
         hud_text(choices[1].text, x: 576 + 44, y: 550 + 54)
 
-        draw_choice(x: 752, **sprite_constants)
+        draw_choice(x: 752, entity: choices[2], **sprite_constants)
         hud_text(choices[2].text, x: 722 + 44, y: 550 + 54)
       else
         raise "Invalid number of choices!"
@@ -59,20 +71,20 @@ class UI
     # Game Over text.
     if state.screen.complete?
       draw_choice(x: 436, y: 266, x_scale: 0.5, y_scale: 0.25) # Backdrop.
-      $gtk.args.outputs.labels << [530, 290, "You win!"]
+      outputs.labels << [530, 290, "You win!"]
       # @big_font.draw_text("You win!", 530, 290, ZOrder::UI, 1.0, 1.0, Gosu::Color::BLACK)
       # hud_text('Click to play again.', x: 565, y: 355) # TODO: Add this feature.
       hud_text("Press ESC to quit.", x: 565, y: 355)
-      state.input_locked = true # Hide choices.
+      @input_locked = true # Hide choices.
     end
 
     if state.player.health.zero? # Player dead.
       draw_choice(x: 436, y: 266, x_scale: 0.5, y_scale: 0.25) # Backdrop.
-      $gtk.args.outputs.lables << [500, 290, "Game over!"]
+      outputs.lables << [500, 290, "Game over!"]
       # @big_font.draw_text("Game over!", 500, 290, ZOrder::UI, 1.0, 1.0, Gosu::Color::BLACK)
       # hud_text('Click to play again.', x: 565, y: 355) # TODO: Add this feature.
       hud_text("Press ESC to quit.", x: 565, y: 355)
-      state.input_locked = true # Hide choices.
+      @input_locked = true # Hide choices.
     end
 
     # Level debug grid.
@@ -86,52 +98,51 @@ class UI
   # Draws a grid of columns (x values) and rows (y values) for checking pixel precision.
   def draw_debug_grid
     72.step(1280, 72).each do |x|
-      $gtk.args.outputs.lines << {x: x, y: 0, x2: x, y2: 720, r: 0, g: 0, b: 0, a: 255}
-      # Gosu.draw_line(
-      #   x, 0, Gosu::Color::BLACK,
-      #   x, 720, Gosu::Color::BLACK
-      # )
+      outputs.lines << {x: x, y: 0, x2: x, y2: 720, r: 0, g: 0, b: 0, a: 255}
     end
     72.step(720, 72).each do |y|
-      $gtk.args.outputs.lines << {x: 0, y: y, x2: 1280, y2: y, r: 0, g: 0, b: 0, a: 255}
-      # Gosu.draw_line(
-      #   0, y, Gosu::Color::BLACK,
-      #   1280, y, Gosu::Color::BLACK
-      # )
+      outputs.lines << {x: 0, y: y, x2: 1280, y2: y, r: 0, g: 0, b: 0, a: 255}
     end
   end
 
   def hud_text(text, x:, y:)
-    $gtk.args.outputs.labels << [x, y + 20, text, -1]
+    outputs.labels << [x, y + 20, text, -1]
   end
 
-  def draw_choice(x:, y:, x_scale:, y_scale:)
+  def draw_choice(x:, y:, x_scale:, y_scale:, entity: nil)
     w, h = *@choice_sprite.values_at(:w, :h)
-    $gtk.args.outputs.sprites << @choice_sprite.merge(x: x, y: y, w: w * x_scale, h: h * y_scale)
+    sprite = @choice_sprite.merge(x: x, y: y, w: w * x_scale, h: h * y_scale)
+    choice_map[sprite] = entity
+    outputs.sprites << sprite
   end
 
-  def action_for_coordinates(x, y)
-    offset = 128
-    y_static = 40
+  def choice_map
+    @choice_map ||= {}
+  end
 
-    if y.between?(y_static, y_static + offset)
-      return choices[0] if x.between?(400, 400 + offset)
-      return choices[1] if x.between?(576, 576 + offset)
-      choices[2] if x.between?(752, 752 + offset)
-    end
+  def action_for_click(click_point)
+    choice_map.keys
+      .find { |sprite| click_point.inside_rect?(sprite) }
+      .yield_self { |sprite| @choice_map[sprite] }
   end
 
   def finish_tutorial!
     state.tutorial_done = true
-    @input_locked = false
+    unlock!
   end
 
   def handle_input
-    if inputs.mouse.click
-      if inputs.mouse.click.inside_rect?(@mute_sprite)
-        args.audio[:music].gain = state.muted ? 1 : 0
-        state.muted = !state.muted
-      end
+    if inputs.mouse.click&.inside_rect?(@mute_sprite)
+      args.audio[:music].gain = state.muted ? 1 : 0
+      state.muted = !state.muted
     end
+  end
+
+  def lock!
+    @input_locked = true
+  end
+
+  def unlock!
+    @input_locked = false
   end
 end

@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class Level < Screen
+  ADVANCE_DURATION = 2.seconds
+
   def initialize
     @stage = 0
     @level_pos_x = 0
@@ -132,16 +134,36 @@ class Level < Screen
   end
 
   def skip_stage
-    Thread.new do
-      sleep 0.75
-      @input_locked = false
-    end
+    state.skip_stage_start ||= DateTime.now
+    @ui.lock!
 
-    @input_locked = true
+    # Thread.new do
+    #   sleep 0.75
+    #   @input_locked = false
+    # end
+    #
+    # @input_locked = true
   end
 
   def next_stage
     clamped_stage(@stage + 1)
+  end
+
+  def advance_stage!
+    state.advance_stage_start = DateTime.now
+
+    # Thread.new do
+    #   sleep GameWindow.advance_duration
+    #   $gtk.args.state.advancing = false
+    #   Thread.new do
+    #     # Unlock input a short time after advancing completes.
+    #     sleep 0.25
+    #     @input_locked = complete?
+    #   end
+    #   @stage = next_stage unless @player.dead
+    # end
+
+    next_elevations
   end
 
   def next_elevations
@@ -150,5 +172,22 @@ class Level < Screen
 
   def clamped_stage(candidate_stage)
     candidate_stage.clamp(*@elevation_map.keys.minmax_by { |k, _v| k })
+  end
+
+  def tick
+    if (advance_start = state.advance_stage_start)
+      if DateTime.now >= advance_start + 0.75
+        @ui.unlock!
+        state.advance_stage_start = nil
+      end
+
+      if DateTime.now >= advance_start + Level::ADVANCE_DURATION
+        @stage = next_stage unless @player.dead
+        if DateTime.now >= advance_start + 0.25.seconds
+          @input_locked = complete?
+          state.advance_stage_start = nil
+        end
+      end
+    end
   end
 end
