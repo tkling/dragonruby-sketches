@@ -9,6 +9,10 @@ class UI
     @health_frame = Constants.gosu_sprite("hud/health_frame.png", w: 571 * 0.5, h: 83 * 0.5)
     @health_bar = Constants.gosu_sprite("hud/health_bar.png", w: 529 * 0.5, h: 38 * 0.5)
     @choice_sprite = Constants.gosu_sprite("hud/window.png", w: 821, h: 507)
+    @mute_sprites = {
+      mute: Constants.gosu_sprite("items/flagGreen1.png", w: 64, h: 64),
+      muted: Constants.gosu_sprite("items/flagRed2.png", w: 64, h: 64)
+    }
     @choices = [WalkCard.new, JumpCard.new, ConcentrateCard.new]
     @enable_debug_grid = true
     @input_locked = true
@@ -73,6 +77,10 @@ class UI
 
     # Level debug grid.
     draw_debug_grid if @enable_debug_grid
+
+    # Mute button.
+    mute_sprite = state.muted ? @mute_sprites[:muted] : @mute_sprites[:mute]
+    outputs.sprites << @mute_sprite = mute_sprite.merge(x: 1180, y: 630)
   end
 
   # Draws a grid of columns (x values) and rows (y values) for checking pixel precision.
@@ -116,5 +124,14 @@ class UI
   def finish_tutorial!
     state.tutorial_done = true
     @input_locked = false
+  end
+
+  def handle_input
+    if inputs.mouse.click
+      if inputs.mouse.click.inside_rect?(@mute_sprite)
+        args.audio[:music].gain = state.muted ? 1 : 0
+        state.muted = !state.muted
+      end
+    end
   end
 end

@@ -58,8 +58,18 @@ class Level < Screen
   end
 
   def handle_input
-    if inputs.mouse.click && state.tutorial_done.nil?
-      @ui.finish_tutorial!
+    @ui.handle_input
+    if inputs.mouse.click
+      if state.tutorial_done
+        card = @ui.action_for_click(inputs.mouse.click)
+        return if complete? || card.nil?
+
+        @input_locked = true # Unlocked when stage ends.
+        @player.handle_action(card)
+        advance_stage! unless card.is_a?(ConcentrateCard)
+      else
+        @ui.finish_tutorial!
+      end
     end
   end
 
