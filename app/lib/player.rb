@@ -143,7 +143,7 @@ class Player
           Thread.new do
             # This value may need to be longer if traversing from higher->lower elevatioon (~0.6s)
             jitter = 0.4
-            sleep(window.advance_duration / 2 - jitter)
+            sleep(@level.advance_duration / 2 - jitter)
             @is_walking = false
             reset_sprite
           end
@@ -190,7 +190,7 @@ class Player
     @current_sprite = @sprite_jump
     # set_sprite("alienBlue_jump.png")
 
-    @level.outputs.audio[:jump] ||= @jump_sound
+    $gtk.args.audio[:jump] ||= @jump_sound
     # @jump_sound.play
 
     next_elevations = @level.next_elevations
