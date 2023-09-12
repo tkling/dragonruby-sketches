@@ -134,7 +134,7 @@ class Level < Screen
   end
 
   def skip_stage
-    state.skip_stage_start ||= DateTime.now
+    state.skip_stage_at ||= state.tick_count
     @ui.lock!
 
     # Thread.new do
@@ -150,7 +150,7 @@ class Level < Screen
   end
 
   def advance_stage!
-    state.advance_stage_start = DateTime.now
+    state.advance_stage_at ||= state.tick_count
 
     # Thread.new do
     #   sleep GameWindow.advance_duration
@@ -167,7 +167,7 @@ class Level < Screen
   end
 
   def next_elevations
-    @elevation_map[next_stage]
+    elevation_map[next_stage]
   end
 
   def clamped_stage(candidate_stage)
@@ -175,17 +175,24 @@ class Level < Screen
   end
 
   def tick
-    if (advance_start = state.advance_stage_start)
-      if DateTime.now >= advance_start + 0.75
+    if (skipping = state.skip_stage_at)
+      if skipping.elapsed_time >= 0.75
         @ui.unlock!
-        state.advance_stage_start = nil
+      end
+    end
+
+    if (advance_start = state.advance_stage_at)
+      advance_start_dt = advance_start.elapsed_time
+      if advance_start_dt >= 0.75
+        @ui.unlock!
+        state.advance_stage_at = nil
       end
 
-      if DateTime.now >= advance_start + Level::ADVANCE_DURATION
+      if advance_start_dt >= Level::ADVANCE_DURATION
         @stage = next_stage unless @player.dead
-        if DateTime.now >= advance_start + 0.25.seconds
+        if advance_start_dt >= 0.25.seconds
           @input_locked = complete?
-          state.advance_stage_start = nil
+          state.advance_stage_at = nil
         end
       end
     end
