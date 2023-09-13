@@ -23,7 +23,7 @@ class Player
     @current_sprite = @sprite_stand
     # @walk_anim = Gosu::Image.load_tiles("sprites/character/animations/walk.png", 128, 256)
     @is_walking = false
-    @walk_sound = "sounds/walk.mp3"
+    @walk_sound = {input: "sounds/walk.mp3", looping: true}
     # @walk_sound = Gosu::Sample.new("sounds/walk.mp3")
 
     @jump_impulse = 22.0 # Pixels per frame.
@@ -143,7 +143,7 @@ class Player
           Thread.new do
             # This value may need to be longer if traversing from higher->lower elevatioon (~0.6s)
             jitter = 0.4
-            sleep(@level.advance_duration / 2 - jitter)
+            sleep(Level::ADVANCE_DURATION / 2 - jitter)
             @is_walking = false
             reset_sprite
           end
@@ -155,14 +155,17 @@ class Player
   def walk
     return if @is_walking || @is_falling || @is_jumping
 
-    Thread.new do
-      sleep window.advance_duration
-      @is_walking = false
-      reset_sprite
-    end
-
     @is_walking = true
-    @walk_sound.play
+    state.walk_at = state.tick_count
+
+    # Thread.new do
+    #   sleep window.advance_duration
+    #   @is_walking = false
+    #   reset_sprite
+    # end
+
+    audio[:walk] = @walk_sound
+    # @walk_sound.play
     next_elevations = @level.next_elevations
 
     # Handle falling off current elevation when walking.
@@ -212,8 +215,7 @@ class Player
   end
 
   def concentrate
-    # @concentrate_sound.play
-    $gtk.args.audio[:concentrate] ||= @concentrate_sound
+    audio[:concentrate] ||= @concentrate_sound
     @level.skip_stage
   end
 
@@ -234,7 +236,54 @@ class Player
     return if @invulnerable && ($gtk.args.state.tick_count / 100).even?
 
     # Gosu.draw_rect(@x - 56, @y - 24, 112, 152, Gosu::Color::BLUE) if @enable_collision_debug
-    $gtk.args.outputs.sprites << @current_sprite
+    if @is_walking
+      @current_sprite = @walk_anim[state.walk_at.frame_index(2, 5, true).or(0)]
+    end
+    $gtk.args.outputs.sprites << @current_sprite.merge(x: @x, y: @y)
     # @sprite.draw_rot(@x, @y, ZOrder::CHARACTER, 0, 0.5, 0.5, @x_scale, @y_scale)
+  end
+
+  def tick
+    if state.delay_fall_at
+      # TODO: NEXT ORDEAL IS REAL PHYSICS. OR DO I MAKE OUR JAMK PHYSICS WORK?!
+      if state.delay_fall_at.elapsed_time >= Level::ADVANCE_DURATION / 2 + 0.1 # HRMMM DO I CONVERT TO REAL PHYSICS HERE?! I SHOULD.
+        @current_elevation -= 1
+        @is_falling = true
+      end
+    end
+
+    # Thread.new do
+    #   sleep(window.advance_duration / 2 + 0.1)
+    #   @current_elevation -= 1
+    #   @is_falling = true
+    # end
+    if state.jump_at && state.jump_at.elapsed_time > Level::ADVANCE_DURATION
+      # do the jump stuff
+      @is_jumping = false
+      state.jump_at = nil
+    end
+
+    if @is_walking
+      if state.walk_at.elapsed_time < Level::ADVANCE_DURATION
+        @x += 5.2
+      else
+        @is_walking = false
+        @current_sprite = @sprite_stand
+        state.walk_at = nil
+        audio.delete :walk
+      end
+    end
+  end
+
+  def state
+    $gtk.args.state
+  end
+
+  def outputs
+    $gtk.args.outputs
+  end
+
+  def audio
+    $gtk.args.audio
   end
 end
