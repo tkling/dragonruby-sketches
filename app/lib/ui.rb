@@ -15,7 +15,7 @@ class UI
     }
     @choices = [WalkCard.new, JumpCard.new, ConcentrateCard.new]
     @enable_debug_grid = true
-    @input_locked = true
+    @input_locked = false
   end
 
   def state
@@ -41,7 +41,8 @@ class UI
 
     # Card choices.
     unless @input_locked
-      if state.tutorial_done && choices.length == 3
+      if state.tutorial_done
+        raise "Invalid number of choices!" unless choices.length == 3
         sprite_constants = {y: 550, x_scale: 0.1559, y_scale: 0.2525}
 
         draw_choice(x: 400, entity: choices[0], **sprite_constants)
@@ -52,20 +53,18 @@ class UI
 
         draw_choice(x: 752, entity: choices[2], **sprite_constants)
         hud_text(choices[2].text, x: 722 + 44, y: 550 + 54)
-      else
-        raise "Invalid number of choices!"
       end
     end
 
     # Tutorial window.
     unless state.tutorial_done
-      draw_choice(x: 370, y: 196, x_scale: 0.8, y_scale: 0.8)
-      hud_text("Welcome to the game!", x: 550, y: 310)
-      hud_text("Play each turn by choosing from three action cards.", x: 430, y: 360)
-      hud_text("Use movement and abilities to avoid taking damage.", x: 430, y: 390)
-      hud_text("Heal yourself by collecting potions.", x: 430, y: 420)
-      hud_text("Make it to the end of the level to win!", x: 430, y: 450)
-      hud_text("Click anywhere to continue.", x: 530, y: 510)
+      draw_choice(x: 382, y: 148, x_scale: 0.645, y_scale: 0.6)
+      hud_text("Welcome to the game!", x: 559, y: 390)
+      hud_text("Play each turn by choosing from three action cards.", x: 420, y: 338)
+      hud_text("Use movement and abilities to avoid taking damage.", x: 420, y: 308)
+      hud_text("Heal yourself by collecting potions.", x: 420, y: 278)
+      hud_text("Make it to the end of the level to win!", x: 420, y: 248)
+      hud_text("Click anywhere to continue.", x: 528, y: 185)
     end
 
     # Game Over text.

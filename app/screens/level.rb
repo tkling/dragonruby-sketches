@@ -13,7 +13,7 @@ class Level < Screen
       path: "sprites/gosu/levels/level1.png"
     }
 
-    @fg_speed = 4.0
+    @fg_speed = 3.555
     @bg_speed = 2.0
     @bg_scale = 0.7032 # 1024px to 720px.
     @bg_image = {
@@ -37,12 +37,12 @@ class Level < Screen
     @floor_heights = [520, 304, 88].reverse # 1F, 2F, 3F. Pixels.
 
     @ui = UI.new
-    @player = $gtk.args.state.player = Player.new(0, 72, self)
+    @player = $gtk.args.state.player = Player.new(189, 72, self)
   end
 
   def draw
     bg_positions.each do |x|
-      outputs.sprites << sprite_values(@bg_image, x, 0, @bg_scale)
+      outputs.sprites << sprite_values(@bg_image, x + @level_pos_x, 0, @bg_scale)
     end
 
     outputs.sprites << sprite_values(@level_sprite, @level_pos_x, 0, @level_scale)
@@ -82,22 +82,22 @@ class Level < Screen
   def spike_positions
     @spike_positions ||= [
       # Stage 1.
-      [510, 554],
-      [750, 338],
+      [510, 338],
+      [750, 554],
       # Stage 3.
-      [1380, 338],
-      [1610, 338],
+      [1380, 554],
+      [1610, 554],
       # Stage 4.
-      [1660, 554],
-      [1760, 554],
-      [1810, 120],
-      [2040, 120],
-      [2060, 554],
-      [2160, 554],
+      [1660, 338],
+      [1760, 338],
+      [1810, 770],
+      [2040, 770],
+      [2060, 338],
+      [2160, 338],
       # Stage 5.
-      [2240, 338],
-      [2480, 554],
-      [2470, 338]
+      [2240, 554],
+      [2480, 770],
+      [2470, 554]
       # Example solution: Jump, Walk, Walk, Walk, Jump (grab potion above), Walk.
     ]
   end
@@ -175,26 +175,41 @@ class Level < Screen
   end
 
   def tick
+    state.advance_stage_at ||= false
+    state.skip_stage_at ||= false
+
+    @player.tick
+
     if (skipping = state.skip_stage_at)
       if skipping.elapsed_time >= 0.75
         @ui.unlock!
       end
     end
 
-    if (advance_start = state.advance_stage_at)
-      advance_start_dt = advance_start.elapsed_time
-      if advance_start_dt >= 0.75
-        @ui.unlock!
-        state.advance_stage_at = nil
+    if state.advance_stage_at
+      advance_start_dt = state.advance_stage_at.elapsed_time
+
+      # Move the player to the right by moving the level to the left.
+      @level_pos_x -= @fg_speed
+      spike_positions.each.with_index do |(x, y), i|
+        x -= @fg_speed
+        spike_positions[i] = x, y
       end
+      potion_positions.each.with_index do |(x, y), i|
+        x -= @fg_speed
+        potion_positions[i] = x, y
+      end
+      bg_positions.map! { |x| x - @bg_speed }
 
       if advance_start_dt >= Level::ADVANCE_DURATION
         @stage = next_stage unless @player.dead
+        @ui.unlock!
         if advance_start_dt >= 0.25.seconds
           @input_locked = complete?
-          state.advance_stage_at = nil
+          state.advance_stage_at = false
         end
       end
+
     end
   end
 end
