@@ -23,7 +23,7 @@ class Player
     @current_sprite = @sprite_stand
     # @walk_anim = Gosu::Image.load_tiles("sprites/character/animations/walk.png", 128, 256)
     @is_walking = false
-    @walk_sound = {input: "sounds/walk.mp3", looping: true}
+    @walk_sound = {input: "sounds/walk.mp3", looping: true, paused: true}
     # @walk_sound = Gosu::Sample.new("sounds/walk.mp3")
 
     @jump_impulse = 22.0 # Pixels per frame.
@@ -164,7 +164,8 @@ class Player
     #   reset_sprite
     # end
 
-    audio[:walk] = @walk_sound
+    audio[:walk] ||= @walk_sound
+    audio[:walk].paused = false
     # @walk_sound.play
     next_elevations = @level.next_elevations
 
@@ -263,15 +264,11 @@ class Player
       state.jump_at = nil
     end
 
-    if @is_walking
-      if state.walk_at.elapsed_time < Level::ADVANCE_DURATION
-        @x += 5.2
-      else
-        @is_walking = false
-        @current_sprite = @sprite_stand
-        state.walk_at = nil
-        audio.delete :walk
-      end
+    if state.walk_at && state.walk_at.elapsed_time >= Level::ADVANCE_DURATION
+      @is_walking = false
+      @current_sprite = @sprite_stand
+      state.walk_at = nil
+      audio[:walk].paused = true
     end
   end
 
