@@ -24,14 +24,14 @@ class Level < Screen
 
     @spike_sprite = {
       dim_x: 128,
-      dim_y: 128,
-      path: "sprites/gosu/environment/spikes.png"
+      dim_y: 64,
+      path: "sprites/gosu/environment/spikes-cropped.png"
     }
 
     @potion_sprite = {
-      dim_x: 128,
-      dim_y: 128,
-      path: "sprites/gosu/items/potionRed.png"
+      dim_x: 68,
+      dim_y: 87,
+      path: "sprites/gosu/items/potionRed-cropped.png"
     }
 
     @floor_heights = [520, 304, 88].reverse # 1F, 2F, 3F. Pixels.
@@ -209,7 +209,6 @@ class Level < Screen
           state.advance_stage_at = false
         end
       end
-
     end
   end
 end

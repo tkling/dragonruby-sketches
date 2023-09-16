@@ -12,13 +12,12 @@ class Player
     @floor_heights = [520, 304, 88] # 1F, 2F, 3F. Pixels.
     @current_elevation = 0 # 1F.
 
-    @sprite_stand = Constants.gosu_sprite("character/alienBlue_stand.png", w: 128, h: 256).merge(x: x, y: y)
-    # @sprite_stand = "sprites/gosu/character/alienBlue_stand.png"
-    @sprite_jump = Constants.gosu_sprite("character/alienBlue_jump.png", w: 128, h: 256).merge(x: x, y: y)
-    # @sprite_jump = "sprites/gosu/character/alienBlue_jump.png"
-    @sprite_walk = %w[walk1 walk2].map do |suffix|
-      Constants.gosu_sprite("character/alienBlue_#{suffix}.png", w: 128, h: 256).merge(x: x, y: y)
-    end
+    @sprite_stand = Constants.gosu_sprite("character/alienBlue_stand-cropped.png", w: 107, h: 147).merge(x: x, y: y)
+    @sprite_jump = Constants.gosu_sprite("character/alienBlue_jump-cropped.png", w: 108, h: 153).merge(x: x, y: y)
+    @sprite_walk = [
+      Constants.gosu_sprite("character/alienBlue_walk1-cropped.png", w: 108, h: 152).merge(x: x, y: y),
+      Constants.gosu_sprite("character/alienBlue_walk2-cropped.png", w: 112, h: 156).merge(x: x, y: y)
+    ]
     @walk_anim = @sprite_walk
     @current_sprite = @sprite_stand
     # @walk_anim = Gosu::Image.load_tiles("sprites/character/animations/walk.png", 128, 256)
