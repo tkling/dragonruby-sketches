@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class Player
+  include AttrGTK
+
   attr_reader :dead, :health
 
   def initialize(x, y, level)
@@ -9,7 +11,7 @@ class Player
     @y = y
     @x_scale = 1
     @y_scale = 1
-    @floor_heights = [520, 304, 88] # 1F, 2F, 3F. Pixels.
+    @floor_heights = [72, 290, 500] # 1F, 2F, 3F. Pixels.
     @current_elevation = 0 # 1F.
 
     @sprite_stand = Constants.gosu_sprite("character/alienBlue_stand-cropped.png", w: 107, h: 147).merge(x: x, y: y)
@@ -20,35 +22,25 @@ class Player
     ]
     @walk_anim = @sprite_walk
     @current_sprite = @sprite_stand
-    # @walk_anim = Gosu::Image.load_tiles("sprites/character/animations/walk.png", 128, 256)
     @is_walking = false
-    @walk_sound = {input: "sounds/walk.mp3", looping: true, paused: true}
-    # @walk_sound = Gosu::Sample.new("sounds/walk.mp3")
 
     @jump_impulse = 22.0 # Pixels per frame.
     @jump_gravity = 31.0 # Pixels per square second.
     @jump_start_time = nil
     @is_jumping = false
     @is_falling = false
-    @jump_sound = {input: "sounds/jump.mp3", looping: false}
-    # @jump_sound = Gosu::Sample.new("sounds/jump.mp3")
 
+    @walk_sound = {input: "sounds/walk.mp3", looping: true, paused: true}
+    @jump_sound = {input: "sounds/jump.mp3", looping: false}
     @concentrate_sound = {input: "sounds/concentrate.mp3", looping: false}
-    # @concentrate_sound = Gosu::Sample.new("sounds/concentrate.mp3")
 
     # Health and damage.
-    @health = 5
+    @health = 1.0
     @dead = false
     @invulnerable = false
     @damage_sound = {input: "sounds/damage.mp3", looping: false}
-    # @damage_sound = Gosu::Sample.new("sounds/damage.mp3")
-
-    @enable_collision_debug = false
+    @enable_debug = true
   end
-
-  # def set_sprite(filename)
-  #   @sprite = Sprite.character(filename)
-  # end
 
   # Actions occur once per turn/stage.
   def handle_action(action)
@@ -62,32 +54,25 @@ class Player
 
   # Collision is performed via jank. Check bounds of sprites for spikes and potions.
   def detect_collision
-    spikes = @level.spike_positions
-    spikes.each do |coords|
-      x, y = coords
-      next if @invulnerable
+    return if dead
 
-      next unless overlaps(x, y + 32, x + 96, y + 64)
+    @level.spike_sprites.each do |spike|
+      next if @invulnerable
+      next unless spike.intersect_rect?(current_sprite)
 
       # Take damage.
-      @health -= 1 unless @health <= 0
-      $gtk.args.audio[:damage] ||= @damage_sound.merge(gain: 0.5)
-      # @damage_sound.play(volume = 0.5)
+      @health = [@health - 0.2, 0].max
+      audio[:damage] ||= @damage_sound.merge(gain: 0.5)
 
       # Prevent taking damage for the time it takes to walk through the spikes.
       @invulnerable = true
-      Thread.new do
-        sleep 0.85 # Just enough time to avoid taking damage twice from one spike.
-        @invulnerable = false
-      end
+      state.invulnerable_at = state.tick_count
     end
 
-    potions = @level.potion_positions
-    potions.each.with_index do |coords, i|
-      x, y = coords
-      if overlaps(x, y, x + 96, y + 96)
+    @level.potion_sprites.each.with_index do |potion, i|
+      if potion.intersect_rect?(current_sprite)
         # Gain 1 HP.
-        @health += 1 unless @health >= 5
+        @health += 0.2 unless @health >= 1.0
 
         # Remove the potion from the level
         @level.remove_potion(i)
@@ -104,68 +89,38 @@ class Player
     false
   end
 
-  # Detect player overlap with the given sprite bounds.
-  def overlaps(x1, y1, x2, y2)
-    # Determine player bounds.
-
-    # TODO: do collision dragon-ruby way here
-    left_edge = @x - 56
-    right_edge = @x + 56
-    top_edge = @y - 24
-    bottom_edge = @y + 128
-
-    return true if right_edge >= x1 && left_edge <= x2 && bottom_edge >= y1 && top_edge <= y2
-
-    false
-  end
-
   # Locomotion is processed every frame.
   def update_locomotion
-    if @is_walking
-      # Bypassing sprite cache: animation frames are already unique in memory.
-      @sprite = @walk_anim[Gosu.milliseconds / 100 % @walk_anim.size]
-    end
+    return unless @is_jumping || @is_falling
 
-    if @is_jumping || @is_falling
-      v = vert_velocity
-      @y -= v
-      if v.negative?
-        # We are now falling.
-        @is_jumping = false
-        @is_falling = true
+    v = vert_velocity
+    @y += v
+    return unless v.negative?
 
-        # Stop falling when we hit the ground.
-        if @y >= @floor_heights[@current_elevation]
-          @y = @floor_heights[@current_elevation]
-          @is_falling = false
-          @is_walking = true
-          Thread.new do
-            # This value may need to be longer if traversing from higher->lower elevatioon (~0.6s)
-            jitter = 0.4
-            sleep(Level::ADVANCE_DURATION / 2 - jitter)
-            @is_walking = false
-            reset_sprite
-          end
-        end
-      end
+    # We are now falling.
+    @is_jumping = false
+    @is_falling = true
+
+    # Stop falling when we hit the ground.
+    floor_height = @floor_heights[@current_elevation] or
+      raise "nil floor height! current elevation: #{@current_elevation}"
+
+    if @y <= floor_height
+      @y = floor_height
+      @is_falling = false
+      walk(from_fall_landing: true)
     end
   end
 
-  def walk
+  def walk(from_fall_landing: false)
     return if @is_walking || @is_falling || @is_jumping
 
     @is_walking = true
     state.walk_at = state.tick_count
-
-    # Thread.new do
-    #   sleep window.advance_duration
-    #   @is_walking = false
-    #   reset_sprite
-    # end
+    state.walking_after_landing = from_fall_landing
 
     audio[:walk] ||= @walk_sound
     audio[:walk].paused = false
-    # @walk_sound.play
     next_elevations = @level.next_elevations
 
     # Handle falling off current elevation when walking.
@@ -178,24 +133,19 @@ class Player
   end
 
   def delay_fall
-    Thread.new do
-      sleep(window.advance_duration / 2 + 0.1)
-      @current_elevation -= 1
-      @is_falling = true
-    end
+    state.delay_fall_at ||= state.tick_count
   end
 
   def jump
     return if @is_jumping || @is_falling || @is_walking
 
-    @is_jumping = true
     @jump_start_time = Time.now
+    @is_jumping = true
     @current_sprite = @sprite_jump
-    # set_sprite("alienBlue_jump.png")
 
-    $gtk.args.audio[:jump] ||= @jump_sound
-    # @jump_sound.play
-
+    state.jump_at = state.tick_count
+    state.walking_after_landing = true
+    audio[:jump] ||= @jump_sound
     next_elevations = @level.next_elevations
 
     # Handle jumping to higher elevation.
@@ -222,9 +172,9 @@ class Player
   # Calculate vertical velocity based on jumping and falling durations.
   # Kinematics: v2 = v1 * at.
   def vert_velocity
+    return if @jump_start_time.nil?
     dt = Time.now - @jump_start_time
-    downward_velocity = @jump_gravity * dt
-    @jump_impulse - downward_velocity
+    @jump_impulse - @jump_gravity * dt
   end
 
   def reset_sprite
@@ -233,53 +183,70 @@ class Player
 
   def draw
     # Make the player sprite flash when damage was taken.
-    return if @invulnerable && ($gtk.args.state.tick_count / 100).even?
+    return if @invulnerable && ($gtk.args.state.tick_count / 100) % 2 == 0
 
     # Gosu.draw_rect(@x - 56, @y - 24, 112, 152, Gosu::Color::BLUE) if @enable_collision_debug
     if @is_walking
       @current_sprite = @walk_anim[state.walk_at.frame_index(2, 5, true).or(0)]
     end
-    $gtk.args.outputs.sprites << @current_sprite.merge(x: @x, y: @y)
-    # @sprite.draw_rot(@x, @y, ZOrder::CHARACTER, 0, 0.5, 0.5, @x_scale, @y_scale)
+
+    outputs.sprites << current_sprite
+    outputs.borders << current_sprite.merge(b: 255) if @enable_debug
+  end
+
+  def current_sprite
+    @current_sprite.merge(x: @x, y: @y)
   end
 
   def tick
+    if state.invulnerable_at && state.invulnerable_at.elapsed_time >= 1.3.seconds
+      @invulnerable = false
+      state.invulnerable_at = nil
+    end
+
     if state.delay_fall_at
-      # TODO: NEXT ORDEAL IS REAL PHYSICS. OR DO I MAKE OUR JAMK PHYSICS WORK?!
-      if state.delay_fall_at.elapsed_time >= Level::ADVANCE_DURATION / 2 + 0.1 # HRMMM DO I CONVERT TO REAL PHYSICS HERE?! I SHOULD.
+      if state.delay_fall_at.elapsed_time >= Level::ADVANCE_DURATION / 2 + 0.1
         @current_elevation -= 1
+        state.delay_fall_at = nil
         @is_falling = true
       end
     end
 
-    # Thread.new do
-    #   sleep(window.advance_duration / 2 + 0.1)
-    #   @current_elevation -= 1
-    #   @is_falling = true
-    # end
     if state.jump_at && state.jump_at.elapsed_time > Level::ADVANCE_DURATION
-      # do the jump stuff
       @is_jumping = false
       state.jump_at = nil
     end
 
-    if state.walk_at && state.walk_at.elapsed_time >= Level::ADVANCE_DURATION
-      @is_walking = false
-      @current_sprite = @sprite_stand
-      state.walk_at = nil
-      audio[:walk].paused = true
+    if state.walk_at
+      walk_time = if state.walking_after_landing
+        Level::ADVANCE_DURATION / 2 - 0.4.seconds
+      else
+        Level::ADVANCE_DURATION
+      end
+
+      if state.walk_at.elapsed_time >= walk_time
+        @is_walking = false
+        @current_sprite = @sprite_stand
+        state.walk_at = nil
+        state.walking_after_landing = false
+        audio[:walk].paused = true
+      end
     end
+
+    update_locomotion
+    detect_collision
+    detect_death
   end
 
-  def state
-    $gtk.args.state
+  def serialize
+    {}
   end
 
-  def outputs
-    $gtk.args.outputs
+  def inspect
+    serialize.to_s
   end
 
-  def audio
-    $gtk.args.audio
+  def to_s
+    serialize.to_s
   end
 end

@@ -34,10 +34,14 @@ class UI
     $gtk.args
   end
 
+  def audio
+    $gtk.audio
+  end
+
   def draw
     # Display health bar.
     outputs.sprites << @health_frame.merge(x: 10, y: 665)
-    outputs.sprites << @health_bar.merge(x: 20, y: 678)
+    outputs.sprites << @health_bar.merge(x: 20, y: 678, w: @health_bar[:w] * state.player.health)
 
     # Card choices.
     unless @input_locked
@@ -70,19 +74,18 @@ class UI
     # Game Over text.
     if state.screen.complete?
       draw_choice(x: 436, y: 266, x_scale: 0.5, y_scale: 0.25) # Backdrop.
-      outputs.labels << [530, 290, "You win!"]
-      # @big_font.draw_text("You win!", 530, 290, ZOrder::UI, 1.0, 1.0, Gosu::Color::BLACK)
-      # hud_text('Click to play again.', x: 565, y: 355) # TODO: Add this feature.
-      hud_text("Press ESC to quit.", x: 565, y: 355)
+      outputs.labels << [500, 370, "You win!"]
+      hud_text("Press 'r' play again.", x: 565, y: 315)
+      hud_text("Press ESC to quit.", x: 565, y: 285)
       @input_locked = true # Hide choices.
     end
 
-    if state.player.health.zero? # Player dead.
+    if state.player.dead # Player dead.
+      audio.delete :damage if audio.key? :damage
       draw_choice(x: 436, y: 266, x_scale: 0.5, y_scale: 0.25) # Backdrop.
-      outputs.lables << [500, 290, "Game over!"]
-      # @big_font.draw_text("Game over!", 500, 290, ZOrder::UI, 1.0, 1.0, Gosu::Color::BLACK)
-      # hud_text('Click to play again.', x: 565, y: 355) # TODO: Add this feature.
-      hud_text("Press ESC to quit.", x: 565, y: 355)
+      outputs.labels << [500, 370, "Game over!"]
+      hud_text("Press 'r' play again.", x: 565, y: 315)
+      hud_text("Press ESC to quit.", x: 565, y: 285)
       @input_locked = true # Hide choices.
     end
 
@@ -143,5 +146,9 @@ class UI
 
   def unlock!
     @input_locked = false
+  end
+
+  def locked?
+    @input_locked
   end
 end

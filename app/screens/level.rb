@@ -14,7 +14,7 @@ class Level < Screen
     }
 
     @fg_speed = 3.555
-    @bg_speed = 2.0
+    @bg_speed = 1.78
     @bg_scale = 0.7032 # 1024px to 720px.
     @bg_image = {
       dim_x: 1024,
@@ -38,6 +38,8 @@ class Level < Screen
 
     @ui = UI.new
     @player = $gtk.args.state.player = Player.new(189, 72, self)
+
+    @enable_collision_debug = true
   end
 
   def draw
@@ -47,24 +49,33 @@ class Level < Screen
 
     outputs.sprites << sprite_values(@level_sprite, @level_pos_x, 0, @level_scale)
 
-    spike_positions.each do |(x, y)|
-      outputs.sprites << sprite_values(@spike_sprite, x, y - 268, 0.75)
-    end
-
-    potion_positions.each do |(x, y)|
-      outputs.sprites << sprite_values(@potion_sprite, x, y - 515, 0.75)
+    (spike_sprites + potion_sprites).each do |sprite|
+      outputs.sprites << sprite
+      outputs.borders << sprite.merge(r: 255) if @enable_collision_debug
     end
 
     @ui.draw
     @player.draw
   end
 
+  def potion_sprites
+    potion_positions.map do |(x, y)|
+      sprite_values(@potion_sprite, x, y - 515, 0.75)
+    end
+  end
+
+  def spike_sprites
+    spike_positions.map do |(x, y)|
+      sprite_values(@spike_sprite, x, y - 268, 0.75)
+    end
+  end
+
   def handle_input
     @ui.handle_input
-    if inputs.mouse.click
+    if inputs.mouse.click && !@ui.locked?
       if state.tutorial_done
         card = @ui.action_for_click(inputs.mouse.click)
-        return if complete? || card.nil?
+        return if @player.dead || complete? || card.nil?
 
         @input_locked = true # Unlocked when stage ends.
         @player.handle_action(card)
@@ -76,7 +87,8 @@ class Level < Screen
   end
 
   def sprite_values(sprite, x, y, scale = 1.0)
-    [x, y, *sprite.values_at(:dim_x, :dim_y).map { |val| val * scale }, sprite[:path]]
+    w, h = sprite.values_at(:dim_x, :dim_y).map { |val| val * scale }
+    {x: x, y: y, w: w, h: h, path: sprite[:path]}
   end
 
   def spike_positions
@@ -130,19 +142,12 @@ class Level < Screen
   end
 
   def complete?
-    @state == 6
+    @stage == 6
   end
 
   def skip_stage
     state.skip_stage_at ||= state.tick_count
     @ui.lock!
-
-    # Thread.new do
-    #   sleep 0.75
-    #   @input_locked = false
-    # end
-    #
-    # @input_locked = true
   end
 
   def next_stage
@@ -151,18 +156,6 @@ class Level < Screen
 
   def advance_stage!
     state.advance_stage_at ||= state.tick_count
-
-    # Thread.new do
-    #   sleep GameWindow.advance_duration
-    #   $gtk.args.state.advancing = false
-    #   Thread.new do
-    #     # Unlock input a short time after advancing completes.
-    #     sleep 0.25
-    #     @input_locked = complete?
-    #   end
-    #   @stage = next_stage unless @player.dead
-    # end
-
     next_elevations
   end
 
@@ -178,6 +171,7 @@ class Level < Screen
     state.advance_stage_at ||= false
     state.skip_stage_at ||= false
 
+    @player.args = args
     @player.tick
 
     if (skipping = state.skip_stage_at)
@@ -191,15 +185,9 @@ class Level < Screen
 
       # Move the player to the right by moving the level to the left.
       @level_pos_x -= @fg_speed
-      spike_positions.each.with_index do |(x, y), i|
-        x -= @fg_speed
-        spike_positions[i] = x, y
-      end
-      potion_positions.each.with_index do |(x, y), i|
-        x -= @fg_speed
-        potion_positions[i] = x, y
-      end
-      bg_positions.map! { |x| x - @bg_speed }
+      spike_positions.map! { |(x, y)| [x - @fg_speed, y] }
+      potion_positions.map! { |(x, y)| [x - @fg_speed, y] }
+      bg_positions.map! { |x| x + @bg_speed }
 
       if advance_start_dt >= Level::ADVANCE_DURATION
         @stage = next_stage unless @player.dead
