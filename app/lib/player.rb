@@ -81,12 +81,10 @@ class Player
   end
 
   def detect_death
-    if @health <= 0
-      @invulnerable = true
-      @dead = true
-      return true
-    end
-    false
+    return false if @health.to_i > 0
+
+    @invulnerable = true
+    @dead = true
   end
 
   # Locomotion is processed every frame.
@@ -185,7 +183,6 @@ class Player
     # Make the player sprite flash when damage was taken.
     return if @invulnerable && ($gtk.args.state.tick_count / 100) % 2 == 0
 
-    # Gosu.draw_rect(@x - 56, @y - 24, 112, 152, Gosu::Color::BLUE) if @enable_collision_debug
     if @is_walking
       @current_sprite = @walk_anim[state.walk_at.frame_index(2, 5, true).or(0)]
     end
